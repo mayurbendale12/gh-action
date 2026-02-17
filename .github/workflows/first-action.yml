@@ -1,0 +1,11 @@
+name: CI
+#Trigger manually
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Print building project
+        run: echo "Building Project"
+      - name: Done
+        run: echo "Done!"
