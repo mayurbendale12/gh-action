@@ -16,13 +16,14 @@ jobs:
       - name: Checking out project
         uses: actions/checkout@v5
       - name: building project
-        #To run multiple commands use |
-        run: echo "Building Project" | xcodebuild build
+        run: xcodebuild -project GithubActionBootcamp.xcodeproj -scheme GithubActionBootcamp -destination 'generic/platform=iOS Simulator' clean build
   test:
     #This will wait build job to finish
     needs: build
     runs-on: macos-latest
     steps:
+      - name: Checking out project
+        uses: actions/checkout@v5
       - name: Running tests
-        run: xcodebuild test -project GithubActionBootcamp.xcodeproj -scheme GithubActionBootcamp -destination 'platform=iOS Simulator,name=iPhone 17'
+        run: xcodebuild test -project GithubActionBootcamp.xcodeproj -scheme GithubActionBootcamp -destination 'generic/platform=iOS Simulator'
 
