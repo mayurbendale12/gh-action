@@ -6,7 +6,7 @@ struct GithubActionBootcampApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MovieListView(service: service)
+            MovieListView()
         }
     }
 }

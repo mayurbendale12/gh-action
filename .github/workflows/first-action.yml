@@ -1,11 +1,28 @@
 name: CI
-#Trigger manually
+#Trigger workflow manually, we have others like push, pull-request
 on: workflow_dispatch
+#Multiple triggers
+#on: [workflow_dispatch, push]
 jobs:
+  info:
+    runs-on: macos-latest
+    steps:
+      - name: Output Github context
+        #Expressions and context objects
+        run: echo "${{ toJSON(github) }}"
   build:
     runs-on: macos-latest
     steps:
-      - name: Print building project
-        run: echo "Building Project"
-      - name: Done
-        run: echo "Done!"
+      - name: Checking out project
+        uses: actions/checkout@v5
+      - name: building project
+        #To run multiple commands use |
+        run: echo "Building Project" | xcodebuild build
+  test:
+    #This will wait build job to finish
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - name: Running tests
+        run: xcodebuild test -project GithubActionBootcamp.xcodeproj -scheme GithubActionBootcamp -destination 'platform=iOS Simulator,name=iPhone 17'
+

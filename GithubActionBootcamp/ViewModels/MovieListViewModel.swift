@@ -2,9 +2,9 @@ import SwiftUI
 import Combine
 
 @MainActor
-final class MovieListViewModel: MoviewViewModelContract {
+final class MovieListViewModel: ObservableObject {
     @Published private(set) var movies: [Movie] = []
-    var isLoading = false
+    @Published var isLoading = false
 
     private let service: MovieServiceProtocol
 

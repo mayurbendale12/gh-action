@@ -11,8 +11,4 @@ final class MockMovieService: MovieServiceProtocol {
         try await Task.sleep(nanoseconds: 500_000_000)
         return movies
     }
-
-    func fetchMovie(id: UUID) async throws -> Movie? {
-        movies.first { $0.id == id }
-    }
 }
