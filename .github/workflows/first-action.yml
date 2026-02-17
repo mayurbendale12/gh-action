@@ -10,20 +10,26 @@ jobs:
       - name: Output Github context
         #Expressions and context objects
         run: echo "${{ toJSON(github) }}"
-  build:
+  build-and-test:
     runs-on: macos-latest
+
+    env:
+      SCHEME: GithubActionBootcamp
+      PROJECT: GithubActionBootcamp.xcodeproj
+      DERIVED_DATA: build/DerivedData
+      RESULT_BUNDLE: build/TestResults.xcresult
+
     steps:
       - name: Checking out project
         uses: actions/checkout@v5
+      # Optional but recommended: select latest stable Xcode
+      - name: Select Xcode version
+        run: sudo xcode-select -switch /Applications/Xcode.app
+      - name: Show Xcode version
+        run: xcodebuild -version
       - name: building project
-        run: xcodebuild -project GithubActionBootcamp.xcodeproj -scheme GithubActionBootcamp -destination 'generic/platform=iOS Simulator' clean build
-  test:
-    #This will wait build job to finish
-    needs: build
-    runs-on: macos-latest
-    steps:
-      - name: Checking out project
-        uses: actions/checkout@v5
+        run: xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination 'generic/platform=iOS Simulator' clean build CODE_SIGNING_ALLOWED=NO
       - name: Running tests
-        run: xcodebuild test -project GithubActionBootcamp.xcodeproj -scheme GithubActionBootcamp -destination 'generic/platform=iOS Simulator'
+        run: xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination 'platform=iOS Simulator,name=iPhone 15' CODE_SIGNING_ALLOWED=NO
+
 
