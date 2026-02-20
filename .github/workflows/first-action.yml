@@ -27,9 +27,51 @@ jobs:
         run: sudo xcode-select -switch /Applications/Xcode.app
       - name: Show Xcode version
         run: xcodebuild -version
-      - name: building project
-        run: xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination 'generic/platform=iOS Simulator' clean build CODE_SIGNING_ALLOWED=NO
-      - name: Running tests
-        run: xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination 'platform=iOS Simulator,name=iPhone 15' CODE_SIGNING_ALLOWED=NO
+      - name: Detect available iPhone simulator
+        id: simulator
+        run: |
+          echo "Detecting available simulators..."
 
+          DEVICE=$(xcrun simctl list devices available | \
+            grep -E 'iPhone [0-9]+' | \
+            head -n 1 | \
+            sed -E 's/^[[:space:]]*([^()]+).*/\1/')
+
+          if [ -z "$DEVICE" ]; then
+            echo "❌ No simulator found"
+            exit 1
+          fi
+
+          echo "Using simulator: $DEVICE"
+          echo "DEVICE=$DEVICE" >> $GITHUB_OUTPUT
+      - name: Boot simulator
+        run: |
+          UDID=$(xcrun simctl list devices available | \
+            grep "${{ steps.simulator.outputs.DEVICE }}" | \
+            head -n 1 | \
+            grep -oE '[0-9A-F-]{36}')
+
+          echo "Booting simulator $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b || true
+      - name: building project
+        run: xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination 'generic/platform=iOS Simulator' -derivedDataPath "$DERIVED_DATA" clean build CODE_SIGNING_ALLOWED=NO
+      - name: Run Unit Tests
+        run: xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination "platform=iOS Simulator,name=${{ steps.simulator.outputs.DEVICE }}" -derivedDataPath "$DERIVED_DATA" -resultBundlePath "$RESULT_BUNDLE" CODE_SIGNING_ALLOWED=NO
+      - name: Upload test results
+        uses: actions/upload-artifact@v6
+        with:
+          name: TestResults
+          path: build/TestResults.xcresult
+      - name: Upload app build
+        uses: actions/upload-artifact@v6
+        with:
+          name: AppBuild
+          path: build/DerivedData/Build/Products/**/*.app
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: BuildLogs
+          path: build
 
