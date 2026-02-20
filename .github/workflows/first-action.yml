@@ -20,6 +20,9 @@ jobs:
       RESULT_BUNDLE: build/TestResults.xcresult
 
     steps:
+        # ---------------------------------------------------------
+        # CHECKOUT
+        # ---------------------------------------------------------
       - name: Checking out project
         uses: actions/checkout@v5
       # Optional but recommended: select latest stable Xcode
@@ -27,32 +30,75 @@ jobs:
         run: sudo xcode-select -switch /Applications/Xcode.app
       - name: Show Xcode version
         run: xcodebuild -version
+        # ---------------------------------------------------------
+        # CACHE (SwiftPM + DerivedData)
+        # ---------------------------------------------------------
+      - name: Cache build data
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-
+        # ---------------------------------------------------------
+        # SIMULATOR SELECTION
+        # ---------------------------------------------------------
       - name: Detect simulator UDID
         id: sim
         run: |
-            echo "Finding best available iPhone simulator..."
+          echo "🔎 Detecting newest iOS runtime..."
 
-            UDID=$(xcrun simctl list devices available | \
-            grep -E 'iPhone.*\(' | \
-            grep -v 'unavailable' | \
-            tail -n 1 | \
-            grep -oE '[0-9A-F-]{36}')
+          RUNTIME=$(xcrun simctl list runtimes | \
+            grep "iOS" | \
+            grep -oE '[0-9]+(\.[0-9]+)+' | \
+            sort -V | \
+            tail -n 1)
 
-            if [ -z "$UDID" ]; then
-                echo "❌ No simulator found"
-                exit 1
-            fi
+          echo "Newest runtime: iOS $RUNTIME"
 
-            echo "Using simulator UDID: $UDID"
-            echo "UDID=$UDID" >> $GITHUB_OUTPUT
+          echo "🔎 Searching for iPhone in that runtime..."
+
+          UDID=$(xcrun simctl list devices available | \
+            awk -v runtime="$RUNTIME" '
+              $0 ~ runtime {found=1}
+              found && /iPhone/ {
+                if (match($0, /[0-9A-F-]{36}/)) {
+                  print substr($0, RSTART, RLENGTH)
+                  exit
+                }
+              }
+            ')
+
+          if [ -z "$UDID" ]; then
+            echo "❌ No iPhone simulator found"
+            xcrun simctl list devices
+            exit 1
+          fi
+
+          echo "✅ Using simulator UDID: $UDID"
+          echo "UDID=$UDID" >> $GITHUB_OUTPUT
+        # ---------------------------------------------------------
+        # BOOT SIMULATOR (Prevents CI flakiness)
+        # ---------------------------------------------------------
       - name: Boot simulator
         run: |
             xcrun simctl boot "${{ steps.sim.outputs.UDID }}" || true
             xcrun simctl bootstatus "${{ steps.sim.outputs.UDID }}" -b || true
+        # ---------------------------------------------------------
+        # BUILD
+        # ---------------------------------------------------------
       - name: building project
         run: xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination 'generic/platform=iOS Simulator' -derivedDataPath "$DERIVED_DATA" clean build CODE_SIGNING_ALLOWED=NO
+        # ---------------------------------------------------------
+        # TEST
+        # ---------------------------------------------------------
       - name: Run Unit Tests
         run: xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.UDID }}" -derivedDataPath "$DERIVED_DATA" -resultBundlePath "$RESULT_BUNDLE" CODE_SIGNING_ALLOWED=NO
+        # ---------------------------------------------------------
+        # ARTIFACTS
+        # ---------------------------------------------------------
       - name: Upload test results
         uses: actions/upload-artifact@v6
         with:
